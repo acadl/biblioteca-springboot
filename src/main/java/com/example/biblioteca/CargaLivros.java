@@ -1,3 +1,5 @@
+package com.example.biblioteca;
+
 import com.example.biblioteca.model.Livro;
 import com.example.biblioteca.repository.LivroRepository;
 import org.apache.commons.csv.CSVFormat;
@@ -21,6 +23,7 @@ public class CargaLivros implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(CargaLivros.class);
     private static final int TAMANHO_LOTE = 1000;
+    private static final int TAMANHO_MAX_TITULO = 255; // ajuste conforme a coluna "nome" no V1__Livro.sql
 
     private final LivroRepository repository;
 
@@ -30,17 +33,20 @@ public class CargaLivros implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (repository.count() > 0) return;
+        if (repository.count() > 0) {
+            log.info("Banco já possui livros, carga ignorada");
+            return;
+        }
 
-        CSVFormat formato = CSVFormat.DEFAULT; // troque para CSVFormat.DEFAULT.builder().setDelimiter(';').build() se o arquivo usar ;
+        CSVFormat formato = CSVFormat.DEFAULT.builder().setDelimiter(';').build();
 
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new ClassPathResource("books.csv").getInputStream(), StandardCharsets.UTF_8))) {
+                new ClassPathResource("db/migration/books.csv").getInputStream(),
+                StandardCharsets.ISO_8859_1))) {
 
-            // lê o cabeçalho e descobre em qual coluna está o título
+            int idxTitulo = -1;
             CSVRecord cabecalho = parseLinha(reader.readLine(), formato);
             int qtdColunas = cabecalho.size();
-            int idxTitulo = -1;
             for (int i = 0; i < qtdColunas; i++) {
                 if (cabecalho.get(i).trim().equalsIgnoreCase("Book-Title")) {
                     idxTitulo = i;
@@ -56,34 +62,40 @@ public class CargaLivros implements CommandLineRunner {
             String linha;
 
             while ((linha = reader.readLine()) != null) {
+
+                // 1) parse: só erros de leitura do CSV caem no catch
+                String titulo;
                 try {
                     CSVRecord registro = parseLinha(linha, formato);
-
-                    if (registro.size() != qtdColunas) { // vírgula a mais = linha quebrada
+                    if (registro.size() != qtdColunas) {
                         ignorados++;
                         continue;
                     }
-
-                    String titulo = registro.get(idxTitulo).trim();
-                    if (titulo.isEmpty() || titulo.length() > 500) {
-                        ignorados++;
-                        continue;
-                    }
-
-                    lote.add(new Livro(titulo));
-
-                    if (lote.size() == TAMANHO_LOTE) {
-                        repository.saveAll(lote);
-                        importados += lote.size();
-                        lote.clear();
-                    }
+                    titulo = registro.get(idxTitulo).trim();
                 } catch (Exception e) {
-                    ignorados++; // qualquer erro de parse: pula a linha
+                    ignorados++;
+                    continue;
+                }
+
+                // 2) validação
+                if (titulo.isEmpty() || titulo.length() > TAMANHO_MAX_TITULO) {
+                    ignorados++;
+                    continue;
+                }
+
+                // 3) gravação em lote: erro de banco NÃO é engolido
+                lote.add(new Livro(titulo));
+                if (lote.size() == TAMANHO_LOTE) {
+                    repository.saveAll(lote);
+                    importados += lote.size();
+                    lote.clear();
                 }
             }
 
-            repository.saveAll(lote);
-            importados += lote.size();
+            if (!lote.isEmpty()) {
+                repository.saveAll(lote);
+                importados += lote.size();
+            }
 
             log.info("Carga concluída: {} livros importados, {} linhas ignoradas", importados, ignorados);
         }

@@ -29,7 +29,9 @@ public class Livro {
         this.nome = nome;
     }
 
-    public Livro (String nome){
+    public Livro (){}
 
+    public Livro (String nome){
+        this.nome = nome;
     }
 }
