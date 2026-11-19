@@ -13,7 +13,6 @@ import java.util.UUID;
 @Service
 public class LivroService {
     private final LivroRepository livroRepository;
-
     public LivroService(LivroRepository repository){
         this.livroRepository = repository;
     }
@@ -25,32 +24,24 @@ public class LivroService {
     }
 
     public Livro editarLivro(UUID idLivro, String tituloLivro) {
-
         Optional<Livro> livro = livroRepository.findById(idLivro);
-
         if (livro.isPresent()) {
             Livro livroEncontrado = livro.get();
-
             livroEncontrado.setNome(tituloLivro);
-
             return livroRepository.save(livroEncontrado);
         }
-
         throw new RuntimeException("Livro não encontrado!");
     }
 
     public String excluirLivro(UUID idLivro) {
         Livro livro = livroRepository.findById(idLivro).orElseThrow(() -> new RuntimeException("Livro não encontrado"));
         livroRepository.delete(livro);
-
         return "Livro " + livro.getNome() + " excluído com sucesso!";
     }
 
     public Livro adicionarLivro(@NotBlank String tituloLivro) {
         Livro livro = new Livro();
         livro.setNome(tituloLivro);
-        Livro livroSalvo = livroRepository.save(livro);
-
-        return livroSalvo;
+        return livroRepository.save(livro);
     }
 }
