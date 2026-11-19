@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -24,17 +25,25 @@ public class LivroService {
     }
 
     public Livro editarLivro(UUID idLivro, String tituloLivro) {
-        Livro livro = livroRepository.findById(idLivro).orElseThrow(() -> new RuntimeException("Livro não encontrado"));
-        livro.setNome(tituloLivro);
 
-        return livro;
+        Optional<Livro> livro = livroRepository.findById(idLivro);
+
+        if (livro.isPresent()) {
+            Livro livroEncontrado = livro.get();
+
+            livroEncontrado.setNome(tituloLivro);
+
+            return livroRepository.save(livroEncontrado);
+        }
+
+        throw new RuntimeException("Livro não encontrado!");
     }
 
     public String excluirLivro(UUID idLivro) {
         Livro livro = livroRepository.findById(idLivro).orElseThrow(() -> new RuntimeException("Livro não encontrado"));
         livroRepository.delete(livro);
 
-        return "Livro " + livro.getNome() + "excluído com sucesso!";
+        return "Livro " + livro.getNome() + " excluído com sucesso!";
     }
 
     public Livro adicionarLivro(@NotBlank String tituloLivro) {
